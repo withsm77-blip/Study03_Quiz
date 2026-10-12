@@ -27,6 +27,32 @@ function isCorrect(item, displayIndex) {
   return displayIndex === correctDisplayIndex(item);
 }
 
+const SPEED_SECONDS = 15;
+
+function createCountdown(seconds, onTick, onExpire, clock = { setInterval, clearInterval }) {
+  let id = null;
+  let remaining = seconds;
+  function stop() {
+    if (id !== null) {
+      clock.clearInterval(id);
+      id = null;
+    }
+  }
+  function start() {
+    stop();
+    remaining = seconds;
+    id = clock.setInterval(() => {
+      remaining--;
+      onTick(remaining);
+      if (remaining <= 0) {
+        stop();
+        onExpire();
+      }
+    }, 1000);
+  }
+  return { start, stop };
+}
+
 function scoreFor({ correct, usedHint }) {
   if (!correct) return 0;
   return usedHint ? 0.5 : 1;
@@ -96,6 +122,7 @@ const state = {
   results: [],
   locked: false,
   isRetry: false,
+  timer: null,
 };
 
 function $(id) {
@@ -108,7 +135,13 @@ function showScreen(id) {
   });
 }
 
+function stopTimer() {
+  if (state.timer) state.timer.stop();
+}
+
 function startRound(mode, category) {
+  stopTimer();
+  state.timer = null;
   state.mode = mode;
   state.category = category;
   state.items = buildRound(QUESTIONS, category);
@@ -117,6 +150,13 @@ function startRound(mode, category) {
   state.results = [];
   state.locked = false;
   state.isRetry = false;
+  if (mode === "speed") {
+    state.timer = createCountdown(
+      SPEED_SECONDS,
+      (sec) => { $("timer").textContent = String(sec); },
+      () => handleAnswer(null)
+    );
+  }
   showScreen("screen-quiz");
   renderQuestion();
 }
@@ -147,26 +187,36 @@ function renderQuestion() {
   $("next-btn").hidden = true;
   $("next-btn").textContent =
     state.index === state.items.length - 1 ? "결과 보기" : "다음";
+  const timerEl = $("timer");
+  if (state.mode === "speed" && state.timer) {
+    timerEl.hidden = false;
+    timerEl.textContent = String(SPEED_SECONDS);
+    state.timer.start();
+  } else {
+    timerEl.hidden = true;
+  }
 }
 
 function handleAnswer(displayIndex) {
   if (state.locked) return;
   state.locked = true;
+  stopTimer();
   const item = state.items[state.index];
-  const correct = isCorrect(item, displayIndex);
+  const timedOut = displayIndex === null;
+  const correct = !timedOut && isCorrect(item, displayIndex);
   const usedHint = false;
   const pts = scoreFor({ correct, usedHint });
   state.score += pts;
-  state.results.push({ item, correct, usedHint, timedOut: false });
+  state.results.push({ item, correct, usedHint, timedOut });
 
   const buttons = $("choices").querySelectorAll(".choice");
   buttons.forEach((b) => { b.disabled = true; });
   buttons[correctDisplayIndex(item)].classList.add("is-correct");
-  if (!correct) buttons[displayIndex].classList.add("is-wrong");
+  if (!correct && !timedOut) buttons[displayIndex].classList.add("is-wrong");
 
   $("score-now").textContent = formatScore(state.score);
   const fb = $("feedback");
-  fb.textContent = correct ? "정답!" : "오답";
+  fb.textContent = timedOut ? "시간 초과" : correct ? "정답!" : "오답";
   fb.className = "feedback " + (correct ? "ok" : "bad");
   $("explanation").textContent = item.q.explanation;
   $("source").textContent = "출처: " + item.q.source;
@@ -184,21 +234,38 @@ function nextQuestion() {
 }
 
 function showResult() {
+  stopTimer();
+  document.querySelectorAll("#screen-result .no-record-notice").forEach((el) => {
+    el.hidden = state.mode !== "practice";
+  });
   const right = state.results.filter((r) => r.correct).length;
   $("result-score").textContent = `${formatScore(state.score)} / ${state.items.length}`;
   $("result-detail").textContent = `맞힘 ${right} · 틀림 ${state.results.length - right}`;
   showScreen("screen-result");
 }
 
-function goHome() {
+function showCategoryScreen() {
   $("current-mode").textContent = MODE_LABELS[state.mode];
+  document.querySelectorAll("#screen-category .no-record-notice").forEach((el) => {
+    el.hidden = state.mode !== "practice";
+  });
   showScreen("screen-category");
+}
+
+function goHome() {
+  stopTimer();
+  showScreen("screen-mode");
 }
 
 function init() {
   const warnings = validateQuestions(QUESTIONS);
   if (warnings.length > 0) console.warn("문항 데이터 문제:\n" + warnings.join("\n"));
-  state.mode = "practice";
+  document.querySelectorAll(".mode-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.mode = btn.dataset.mode;
+      showCategoryScreen();
+    });
+  });
   document.querySelectorAll(".category-btn").forEach((btn) => {
     btn.addEventListener("click", () => startRound(state.mode, btn.dataset.category));
   });
@@ -220,6 +287,8 @@ if (typeof module !== "undefined") {
     isCorrect,
     scoreFor,
     formatScore,
+    createCountdown,
+    SPEED_SECONDS,
     validateQuestions,
     superlativeIds,
   };

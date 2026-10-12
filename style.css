@@ -47,3 +47,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .result-detail { text-align: center; color: var(--muted); margin: 0; }
 #timer { font-weight: 700; color: var(--bad); }
 #name-input, #lb-category { font: inherit; padding: 10px; border: 2px solid var(--line); border-radius: 10px; max-width: 100%; }
+.btn-col .mode-btn { width: 100%; }
+.mode-item { display: flex; flex-direction: column; gap: 4px; }
+.mode-rule { margin: 0 4px; color: var(--muted); font-size: .9rem; }
+.mode-notice { margin: 0 4px; color: var(--muted); font-size: .85rem; font-weight: 700; }
+#open-lb-btn { width: 100%; margin-top: 16px; }

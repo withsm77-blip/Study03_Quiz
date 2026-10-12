@@ -11,8 +11,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const APP_URL = "file://" + path.resolve(here, "..", "index.html");
 
 const scenarios = [];
-export function scenario(name, fn) {
-  scenarios.push({ name, fn });
+export function scenario(name, fn, opts = {}) {
+  scenarios.push({ name, fn, opts });
 }
 
 async function launch() {
@@ -23,8 +23,10 @@ async function launch() {
   }
 }
 
-async function openApp(browser) {
+async function openApp(browser, opts = {}) {
   const page = await browser.newPage();
+  if (opts.clock) await page.clock.install();
+  page.setDefaultTimeout(3000);
   page.errors = [];
   page.on("console", (m) => { if (m.type() === "error") page.errors.push(m.text()); });
   page.on("pageerror", (e) => page.errors.push(String(e)));
@@ -57,6 +59,7 @@ export async function answerWrong(page) {
 }
 
 scenario("stage1 practice flow", async (page) => {
+  await page.click('.mode-btn[data-mode="practice"]');
   assert.ok(await page.isVisible("#screen-category"));
   assert.equal((await page.textContent(".no-record-notice")).trim(), "순위표에 기록되지 않음");
   await page.click('.category-btn[data-category="한국사"]');
@@ -94,16 +97,18 @@ scenario("stage1 practice flow", async (page) => {
   assert.equal((await page.textContent("#progress")).trim(), "1 / 10");
 });
 
-scenario("home button returns to category screen", async (page) => {
+scenario("home button returns to mode screen", async (page) => {
+  await page.click('.mode-btn[data-mode="practice"]');
   await page.click('.category-btn[data-category="과학"]');
   for (let i = 0; i < 10; i++) { await answerCorrect(page); await page.click("#next-btn"); }
   assert.equal((await page.textContent("#result-score")).trim(), "10 / 10");
   await page.click("#home-btn");
-  assert.ok(await page.isVisible("#screen-category"));
+  assert.ok(await page.isVisible("#screen-mode"));
   assert.ok(!(await page.isVisible("#screen-result")));
 });
 
 scenario("double click scores once", async (page) => {
+  await page.click('.mode-btn[data-mode="practice"]');
   await page.click('.category-btn[data-category="세계지리"]');
   const q = await currentQuestion(page);
   const texts = await page.locator("#choices .choice").allTextContents();
@@ -112,11 +117,94 @@ scenario("double click scores once", async (page) => {
   assert.equal((await page.textContent("#score-now")).trim(), "1");
 });
 
+const timerText = async (page) => (await page.textContent("#timer")).trim();
+
+async function startSpeed(page, cat = "한국사") {
+  await page.click('.mode-btn[data-mode="speed"]');
+  await page.click(`.category-btn[data-category="${cat}"]`);
+}
+
+scenario("mode screen", async (page) => {
+  assert.ok(await page.isVisible("#screen-mode"));
+  assert.ok(!(await page.isVisible("#screen-category")));
+  await page.click('.mode-btn[data-mode="practice"]');
+  assert.ok(await page.isVisible("#screen-category .no-record-notice"));
+  assert.equal((await page.textContent("#screen-category .no-record-notice")).trim(), "순위표에 기록되지 않음");
+});
+
+scenario("mode screen speed hides notice", async (page) => {
+  await page.click('.mode-btn[data-mode="speed"]');
+  assert.ok(await page.isVisible("#screen-category"));
+  assert.ok(!(await page.isVisible("#screen-category .no-record-notice")));
+});
+
+scenario("mode screen notice", async (page) => {
+  const practice = page.locator('#screen-mode .mode-item[data-mode="practice"]');
+  assert.ok((await practice.textContent()).includes("순위표에 기록되지 않음"));
+  assert.ok(await practice.locator(".mode-rule").isVisible());
+  for (const m of ["speed", "hint"]) {
+    const t = (await page.locator(`#screen-mode .mode-item[data-mode="${m}"] .mode-rule`).textContent()).trim();
+    assert.ok(t.length > 0, m + " rule missing");
+  }
+});
+
+scenario("speed timeout", async (page) => {
+  await startSpeed(page);
+  assert.ok(await page.isVisible("#timer"));
+  assert.equal(await timerText(page), "15");
+  await page.clock.runFor(15000);
+  assert.equal((await page.textContent("#feedback")).trim(), "시간 초과");
+  assert.equal(await page.locator("#choices .choice.is-correct").count(), 1);
+  assert.equal(await page.locator("#choices .choice.is-wrong").count(), 0);
+  assert.equal((await page.textContent("#score-now")).trim(), "0");
+  const dis = await page.locator("#choices .choice").evaluateAll((els) => els.map((e) => e.disabled));
+  assert.ok(dis.every(Boolean));
+  assert.ok(await page.isVisible("#next-btn"));
+}, { clock: true });
+
+scenario("speed timer pauses and resets", async (page) => {
+  await startSpeed(page);
+  await page.clock.runFor(5000);
+  await answerCorrect(page);
+  assert.equal(await timerText(page), "10");
+  await page.clock.runFor(20000);
+  assert.equal(await timerText(page), "10");
+  await page.click("#next-btn");
+  assert.equal(await timerText(page), "15");
+}, { clock: true });
+
+scenario("answer after timeout ignored", async (page) => {
+  await startSpeed(page);
+  await page.clock.runFor(15000);
+  await page.evaluate(() => document.querySelector("#choices .choice").click());
+  assert.equal((await page.textContent("#feedback")).trim(), "시간 초과");
+  assert.equal((await page.textContent("#score-now")).trim(), "0");
+}, { clock: true });
+
+scenario("no timer leak", async (page) => {
+  await startSpeed(page);
+  for (let i = 0; i < 10; i++) {
+    await answerCorrect(page);
+    await page.click("#next-btn");
+  }
+  assert.ok(await page.isVisible("#screen-result"));
+  await page.click("#again-btn");
+  assert.equal(await timerText(page), "15");
+  await page.clock.runFor(1000);
+  assert.equal(await timerText(page), "14");
+}, { clock: true });
+
+scenario("timer hidden outside speed mode", async (page) => {
+  await page.click('.mode-btn[data-mode="practice"]');
+  await page.click('.category-btn[data-category="과학"]');
+  assert.ok(!(await page.isVisible("#timer")));
+});
+
 async function main() {
   const browser = await launch();
   let failed = 0;
-  for (const { name, fn } of scenarios) {
-    const page = await openApp(browser);
+  for (const { name, fn, opts } of scenarios) {
+    const page = await openApp(browser, opts);
     try {
       await fn(page);
       assert.deepEqual(page.errors, [], "console errors");

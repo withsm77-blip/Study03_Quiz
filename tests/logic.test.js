@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
-  shuffle, buildRound, correctDisplayIndex, isCorrect, scoreFor, formatScore,
+  shuffle, buildRound, correctDisplayIndex, isCorrect, scoreFor, formatScore, createCountdown,
 } = require("../script.js");
 
 test("shuffle keeps elements", () => {
@@ -117,4 +117,56 @@ test("superlatives state basis", () => {
     assert.ok(/\d{4}년/.test(q.question), `${id}: 시점(연도) 없음`);
     assert.ok(/기준/.test(q.question), `${id}: 기준 없음`);
   }
+});
+
+function fakeClock() {
+  let nextId = 1;
+  const active = new Map();
+  return {
+    setInterval(fn) { const id = nextId++; active.set(id, fn); return id; },
+    clearInterval(id) { active.delete(id); },
+    tick(n = 1) { for (let i = 0; i < n; i++) [...active.values()].forEach((f) => f()); },
+    activeCount() { return active.size; },
+  };
+}
+
+test("countdown ticks then expires once", () => {
+  const clock = fakeClock();
+  const ticks = [];
+  let expired = 0;
+  const cd = createCountdown(15, (s) => ticks.push(s), () => expired++, clock);
+  cd.start();
+  clock.tick(15);
+  assert.deepEqual(ticks, [14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
+  assert.equal(expired, 1);
+  clock.tick(5);
+  assert.equal(expired, 1);
+  assert.equal(ticks.length, 15);
+  assert.equal(clock.activeCount(), 0);
+});
+
+test("countdown stop prevents expire", () => {
+  const clock = fakeClock();
+  let expired = 0;
+  let ticks = 0;
+  const cd = createCountdown(15, () => ticks++, () => expired++, clock);
+  cd.start();
+  clock.tick(10);
+  cd.stop();
+  clock.tick(10);
+  assert.equal(expired, 0);
+  assert.equal(ticks, 10);
+});
+
+test("countdown restart resets", () => {
+  const clock = fakeClock();
+  const ticks = [];
+  const cd = createCountdown(15, (s) => ticks.push(s), () => {}, clock);
+  cd.start();
+  clock.tick(5);
+  cd.start();
+  assert.equal(clock.activeCount(), 1);
+  ticks.length = 0;
+  clock.tick(1);
+  assert.deepEqual(ticks, [14]);
 });
