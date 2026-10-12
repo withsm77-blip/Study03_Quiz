@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>상식 퀴즈</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <h1 class="app-title">상식 퀴즈</h1>
+
+    <section id="screen-mode">
+      <h2>모드를 고르세요</h2>
+      <div class="btn-col">
+        <div class="mode-item" data-mode="practice">
+          <button type="button" class="mode-btn" data-mode="practice">연습 모드</button>
+          <p class="mode-rule">시간 제한 없이 풀고, 틀린 문제는 한 번 다시 풀 수 있어요.</p>
+          <p class="mode-notice">순위표에 기록되지 않음</p>
+        </div>
+        <div class="mode-item" data-mode="speed">
+          <button type="button" class="mode-btn" data-mode="speed">스피드 모드</button>
+          <p class="mode-rule">문제마다 15초 안에 답해야 해요. 시간이 지나면 오답 처리돼요.</p>
+        </div>
+        <div class="mode-item" data-mode="hint">
+          <button type="button" class="mode-btn" data-mode="hint">힌트 모드</button>
+          <p class="mode-rule">힌트로 보기를 지울 수 있지만, 맞혀도 0.5점만 받아요.</p>
+        </div>
+      </div>
+      <button type="button" id="open-lb-btn" class="btn-secondary">순위표 보기</button>
+    </section>
+
+    <section id="screen-category" hidden>
+      <p class="mode-line">모드: <strong id="current-mode">연습 모드</strong></p>
+      <h2>카테고리를 고르세요</h2>
+      <div class="btn-col">
+        <button type="button" class="category-btn" data-category="한국사">한국사</button>
+        <button type="button" class="category-btn" data-category="세계지리">세계지리</button>
+        <button type="button" class="category-btn" data-category="과학">과학</button>
+        <button type="button" class="category-btn" data-category="예술과 문화">예술과 문화</button>
+      </div>
+      <p class="no-record-notice">순위표에 기록되지 않음</p>
+      <button type="button" id="category-back-btn" class="btn-secondary">처음으로</button>
+    </section>
+
+    <section id="screen-quiz" hidden>
+      <div class="quiz-info">
+        <span id="progress">1 / 10</span>
+        <span id="quiz-category"></span>
+        <span id="quiz-mode"></span>
+        <span class="score-box"><span id="score-label">점수 <strong id="score-now">0</strong></span><span id="retry-label" hidden>다시 풀기</span></span>
+        <span id="timer" hidden>남은 시간 <span id="timer-sec">15</span>초</span>
+      </div>
+      <h2 id="question" class="question"></h2>
+      <div id="choices" class="choices"></div>
+      <button type="button" id="hint-btn" class="btn-secondary" hidden>힌트</button>
+      <div class="judge" aria-live="polite">
+        <p id="feedback" class="feedback"></p>
+        <p id="explanation" class="explanation"></p>
+        <p id="source" class="source"></p>
+      </div>
+      <button type="button" id="next-btn" class="btn-primary" hidden>다음</button>
+    </section>
+
+    <section id="screen-result" hidden>
+      <h2>결과</h2>
+      <p id="result-score" class="result-score"></p>
+      <p id="result-detail" class="result-detail"></p>
+      <p class="no-record-notice">순위표에 기록되지 않음</p>
+      <div id="retry-area">
+        <button type="button" id="retry-btn" class="btn-secondary" hidden>틀린 문제 다시 풀기</button>
+        <p id="retry-summary" hidden></p>
+      </div>
+      <div id="save-area" hidden>
+        <input type="text" id="name-input" maxlength="10" placeholder="이름 (최대 10자)">
+        <button type="button" id="save-btn" class="btn-secondary">저장</button>
+        <p id="save-msg"></p>
+      </div>
+      <div class="btn-row">
+        <button type="button" id="again-btn" class="btn-primary">다시 하기</button>
+        <button type="button" id="lb-open-from-result" class="btn-secondary">순위표</button>
+        <button type="button" id="home-btn" class="btn-secondary">처음으로</button>
+      </div>
+    </section>
+
+    <section id="screen-leaderboard" hidden>
+      <h2>순위표</h2>
+      <div class="lb-controls">
+        <select id="lb-mode" aria-label="모드">
+          <option value="speed">스피드</option>
+          <option value="hint">힌트</option>
+        </select>
+        <select id="lb-category" aria-label="카테고리">
+          <option value="한국사">한국사</option>
+          <option value="세계지리">세계지리</option>
+          <option value="과학">과학</option>
+          <option value="예술과 문화">예술과 문화</option>
+        </select>
+      </div>
+      <ol id="lb-list"></ol>
+      <p id="lb-warn" class="lb-warn" hidden>순위표를 저장할 수 없습니다</p>
+      <button type="button" id="lb-back-btn" class="btn-secondary">돌아가기</button>
+    </section>
+  </main>
+  <script src="questions.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
