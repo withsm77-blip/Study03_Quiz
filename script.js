@@ -120,6 +120,54 @@ function superlativeIds(questions) {
     .map((q) => q.id);
 }
 
+// ---- 순위표 로직 ----
+const LB_STORAGE_KEY = "quizLeaderboard";
+const LB_LIMIT = 5;
+const NAME_MAX = 10;
+
+function lbKey(mode, category) {
+  return mode + "|" + category;
+}
+
+function sanitizeName(raw) {
+  const name = Array.from(String(raw == null ? "" : raw).trim()).slice(0, NAME_MAX).join("").trim();
+  return name === "" ? "익명" : name;
+}
+
+function insertRecord(list, record, limit = LB_LIMIT) {
+  const sorted = list.concat([record]).sort((a, b) => b.score - a.score || a.ts - b.ts);
+  const kept = sorted.slice(0, limit);
+  return { list: kept, inserted: kept.includes(record) };
+}
+
+function loadBoard(storage) {
+  try {
+    const raw = storage.getItem(LB_STORAGE_KEY);
+    if (raw === null || raw === undefined) return { board: {}, ok: true };
+    const data = JSON.parse(raw);
+    if (data === null || typeof data !== "object" || Array.isArray(data)) {
+      return { board: {}, ok: false };
+    }
+    return { board: data, ok: true };
+  } catch (e) {
+    return { board: {}, ok: false };
+  }
+}
+
+function saveBoard(storage, board) {
+  try {
+    storage.setItem(LB_STORAGE_KEY, JSON.stringify(board));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function todayString(date = new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return date.getFullYear() + "-" + p(date.getMonth() + 1) + "-" + p(date.getDate());
+}
+
 // ---- 화면 제어 ----
 
 const MODE_LABELS = { practice: "연습 모드", speed: "스피드 모드", hint: "힌트 모드" };
@@ -360,5 +408,14 @@ if (typeof module !== "undefined") {
     SPEED_SECONDS,
     validateQuestions,
     superlativeIds,
+    LB_STORAGE_KEY,
+    LB_LIMIT,
+    NAME_MAX,
+    lbKey,
+    sanitizeName,
+    insertRecord,
+    loadBoard,
+    saveBoard,
+    todayString,
   };
 }

@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   shuffle, buildRound, correctDisplayIndex, isCorrect, scoreFor, formatScore, createCountdown,
+  sanitizeName, lbKey, insertRecord, loadBoard, saveBoard, todayString,
+  LB_STORAGE_KEY, LB_LIMIT, NAME_MAX,
 } = require("../script.js");
 
 test("shuffle keeps elements", () => {
@@ -196,4 +198,75 @@ test("getWrongItems returns fresh items for wrong answers only", () => {
   assert.deepEqual(out.map((it) => it.q.id).sort(), ["q2", "q5", "q7"]);
   for (const it of out) assert.deepEqual(it.order.slice().sort(), [0, 1, 2, 3]);
   assert.deepEqual(getWrongItems(results.filter((r) => r.correct)), []);
+});
+
+test("leaderboard constants and lbKey", () => {
+  assert.equal(LB_STORAGE_KEY, "quizLeaderboard");
+  assert.equal(LB_LIMIT, 5);
+  assert.equal(NAME_MAX, 10);
+  assert.equal(lbKey("speed", "한국사"), "speed|한국사");
+});
+
+test("sanitizeName", () => {
+  assert.equal(sanitizeName("  철수  "), "철수");
+  assert.equal(sanitizeName("   "), "익명");
+  assert.equal(sanitizeName("가나다라마바사아자차카"), "가나다라마바사아자차");
+  assert.equal(sanitizeName("<b>x</b>"), "<b>x</b>");
+});
+
+const rec = (score, ts) => ({ name: "n", score, date: "2026-10-02", ts });
+
+test("insertRecord order and ties", () => {
+  const list = [rec(9, 1), rec(7, 2), rec(5, 0)];
+  const frozen = JSON.stringify(list);
+  const out = insertRecord(list, rec(7, 3));
+  assert.deepEqual(out.list.map((r) => [r.score, r.ts]), [[9, 1], [7, 2], [7, 3], [5, 0]]);
+  assert.equal(out.inserted, true);
+  assert.equal(JSON.stringify(list), frozen);
+});
+
+test("insertRecord full board cut-off", () => {
+  const list = [rec(10, 1), rec(9, 2), rec(8, 3), rec(7, 4), rec(6, 5)];
+  const out = insertRecord(list, rec(6, 6));
+  assert.equal(out.inserted, false);
+  assert.deepEqual(out.list, list);
+  const out2 = insertRecord(list, rec(6.5, 6));
+  assert.equal(out2.inserted, true);
+  assert.equal(out2.list.length, 5);
+});
+
+test("insertRecord with room accepts 0", () => {
+  const out = insertRecord([rec(3, 1), rec(2, 2), rec(1, 3), rec(1, 4)], rec(0, 5));
+  assert.equal(out.inserted, true);
+  assert.equal(out.list.length, 5);
+});
+
+test("loadBoard missing key, valid, and invalid shapes", () => {
+  assert.deepEqual(loadBoard({ getItem: () => null }), { board: {}, ok: true });
+  assert.deepEqual(loadBoard({ getItem: () => '{"a|b":[]}' }), { board: { "a|b": [] }, ok: true });
+  for (const raw of ["null", "[1]", "5", '"x"']) {
+    assert.deepEqual(loadBoard({ getItem: () => raw }), { board: {}, ok: false });
+  }
+});
+
+test("loadBoard survives bad json", () => {
+  assert.deepEqual(loadBoard({ getItem: () => "{oops" }), { board: {}, ok: false });
+});
+
+test("loadBoard survives throwing storage", () => {
+  const r = loadBoard({ getItem: () => { throw new Error("x"); } });
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.board, {});
+  assert.equal(loadBoard(null).ok, false);
+});
+
+test("saveBoard reports failure", () => {
+  assert.equal(saveBoard({ setItem: () => { throw new Error("full"); } }, {}), false);
+  let saved;
+  assert.equal(saveBoard({ setItem: (k, v) => { saved = [k, v]; } }, { a: 1 }), true);
+  assert.deepEqual(saved, ["quizLeaderboard", '{"a":1}']);
+});
+
+test("todayString", () => {
+  assert.equal(todayString(new Date(2026, 9, 2)), "2026-10-02");
 });
