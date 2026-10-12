@@ -114,16 +114,16 @@ const QUESTIONS = [
   {
     id: "wg-03",
     category: "세계지리",
-    question: "해발고도 기준, 세계에서 가장 높은 산은?",
+    question: "2020년 중국·네팔 공동 측량 발표 기준, 해발고도로 세계에서 가장 높은 산은?",
     choices: ["K2", "칸첸중가", "킬리만자로산", "에베레스트산"],
     answer: 3,
-    explanation: "에베레스트산은 해발 8,849m로 세계에서 가장 높은 산이다.",
-    source: "브리태니커, Mount Everest",
+    explanation: "2020년 중국과 네팔이 에베레스트산의 높이를 8,848.86m로 공동 발표했다.",
+    source: "브리태니커, Mount Everest - The height of Everest",
   },
   {
     id: "wg-04",
     category: "세계지리",
-    question: "면적 기준, 세계에서 가장 넓은 대양은?",
+    question: "2024년 기준, 면적 기준으로 세계에서 가장 넓은 대양은?",
     choices: ["태평양", "대서양", "인도양", "북극해"],
     answer: 0,
     explanation: "태평양은 세계에서 가장 넓은 대양이며, 대서양이 두 번째다.",
@@ -162,7 +162,7 @@ const QUESTIONS = [
     question: "2024년 기준, 면적 기준으로 세계에서 가장 넓은 나라는?",
     choices: ["러시아", "캐나다", "중국", "미국"],
     answer: 0,
-    explanation: "러시아의 면적은 약 1,708만 km²로 세계에서 가장 넓다.",
+    explanation: "러시아의 면적은 약 1,700만 km²로, 2위 캐나다의 약 1.7배다.",
     source: "브리태니커, Why Is Russia So Big?",
   },
   {
@@ -204,7 +204,7 @@ const QUESTIONS = [
   {
     id: "sc-03",
     category: "과학",
-    question: "태양까지의 평균 거리 기준, 태양에 가장 가까운 행성은?",
+    question: "2024년 기준, 태양까지의 평균 거리 기준으로 태양에 가장 가까운 행성은?",
     choices: ["수성", "금성", "지구", "화성"],
     answer: 0,
     explanation: "수성은 태양계에서 가장 작은 행성이며 태양과의 평균 거리는 약 5,800만 km다.",
@@ -213,7 +213,7 @@ const QUESTIONS = [
   {
     id: "sc-04",
     category: "과학",
-    question: "진공에서 빛의 속력에 가장 가까운 값은? (SI 정의값 기준)",
+    question: "진공에서 빛의 속력은 대략 얼마인가?",
     choices: ["약 3만 km/s", "약 30만 km/s", "약 300만 km/s", "약 340 m/s"],
     answer: 1,
     explanation: "SI에서 진공 속 빛의 속력은 정확히 299,792,458 m/s로 정의된다.",
@@ -267,7 +267,7 @@ const QUESTIONS = [
   {
     id: "sc-10",
     category: "과학",
-    question: "적도 지름 기준, 태양계에서 가장 큰 행성은?",
+    question: "2024년 기준, 적도 지름 기준으로 태양계에서 가장 큰 행성은?",
     choices: ["토성", "천왕성", "해왕성", "목성"],
     answer: 3,
     explanation: "목성은 태양계에서 가장 큰 행성으로, 지구 약 1,000개가 들어갈 수 있다.",

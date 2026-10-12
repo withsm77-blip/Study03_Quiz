@@ -114,6 +114,7 @@ test("superlatives state basis", () => {
   const ids = superlativeIds(QUESTIONS);
   for (const id of ids) {
     const q = QUESTIONS.find((x) => x.id === id);
-    assert.ok(/\d{4}년/.test(q.question) || q.question.includes("기준"), id);
+    assert.ok(/\d{4}년/.test(q.question), `${id}: 시점(연도) 없음`);
+    assert.ok(/기준/.test(q.question), `${id}: 기준 없음`);
   }
 });
