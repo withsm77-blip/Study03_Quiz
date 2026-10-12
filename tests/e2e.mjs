@@ -194,6 +194,13 @@ scenario("no timer leak", async (page) => {
   assert.equal(await timerText(page), "14");
 }, { clock: true });
 
+scenario("speed timer works with real clock", async (page) => {
+  await startSpeed(page);
+  assert.equal(await timerText(page), "15");
+  await page.waitForTimeout(1200);
+  assert.equal(await timerText(page), "14");
+});
+
 scenario("timer hidden outside speed mode", async (page) => {
   await page.click('.mode-btn[data-mode="practice"]');
   await page.click('.category-btn[data-category="과학"]');

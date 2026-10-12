@@ -29,7 +29,7 @@ function isCorrect(item, displayIndex) {
 
 const SPEED_SECONDS = 15;
 
-function createCountdown(seconds, onTick, onExpire, clock = { setInterval, clearInterval }) {
+function createCountdown(seconds, onTick, onExpire, clock = { setInterval: (fn, ms) => setInterval(fn, ms), clearInterval: (id) => clearInterval(id) }) {
   let id = null;
   let remaining = seconds;
   function stop() {
