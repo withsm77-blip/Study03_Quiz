@@ -207,6 +207,57 @@ scenario("timer hidden outside speed mode", async (page) => {
   assert.ok(!(await page.isVisible("#timer")));
 });
 
+async function startHint(page, cat = "한국사") {
+  await page.click('.mode-btn[data-mode="hint"]');
+  await page.click(`.category-btn[data-category="${cat}"]`);
+}
+
+scenario("hint mode", async (page) => {
+  await startHint(page);
+  assert.ok(await page.isVisible("#hint-btn"));
+  assert.ok(!(await page.isVisible("#timer")));
+  await page.click("#hint-btn");
+  assert.equal(await page.locator("#choices .choice.is-removed").count(), 2);
+  const rem = await page.locator("#choices .choice.is-removed").evaluateAll((els) => els.map((e) => e.disabled));
+  assert.ok(rem.every(Boolean));
+  assert.ok(await page.locator("#hint-btn").isDisabled());
+  const q = await currentQuestion(page);
+  const removed = (await page.locator("#choices .choice.is-removed").allTextContents()).map((t) => t.trim());
+  assert.ok(!removed.includes(q.choices[q.answer]));
+  await answerCorrect(page);
+  assert.equal((await page.textContent("#score-now")).trim(), "0.5");
+  await page.click("#next-btn");
+  assert.ok(!(await page.locator("#hint-btn").isDisabled()));
+  assert.equal(await page.locator("#choices .choice.is-removed").count(), 0);
+  await answerCorrect(page);
+  assert.equal((await page.textContent("#score-now")).trim(), "1.5");
+});
+
+scenario("hint disabled after answer", async (page) => {
+  await startHint(page);
+  await answerCorrect(page);
+  assert.ok(await page.locator("#hint-btn").isDisabled());
+});
+
+scenario("hint hidden outside hint mode", async (page) => {
+  await page.click('.mode-btn[data-mode="practice"]');
+  await page.click('.category-btn[data-category="과학"]');
+  assert.ok(!(await page.isVisible("#hint-btn")));
+});
+
+scenario("hint result format", async (page) => {
+  await startHint(page);
+  await page.click("#hint-btn");
+  await answerCorrect(page);
+  await page.click("#next-btn");
+  for (let i = 1; i < 10; i++) {
+    if (i < 8) await answerCorrect(page); else await answerWrong(page);
+    await page.click("#next-btn");
+  }
+  assert.equal((await page.textContent("#result-score")).trim(), "7.5 / 10");
+  assert.equal((await page.textContent("#result-detail")).trim(), "맞힘 8 · 틀림 2");
+});
+
 async function main() {
   const browser = await launch();
   let failed = 0;

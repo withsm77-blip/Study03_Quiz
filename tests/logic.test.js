@@ -170,3 +170,16 @@ test("countdown restart resets", () => {
   clock.tick(1);
   assert.deepEqual(ticks, [14]);
 });
+
+test("hint removes two wrong choices", () => {
+  const { pickHintRemovals } = require("../script.js");
+  const item = { q: { answer: 2 }, order: [3, 2, 0, 1] };
+  for (let i = 0; i < 100; i++) {
+    const r = pickHintRemovals(item, Math.random);
+    assert.equal(r.length, 2);
+    assert.ok(!r.includes(1));
+    assert.notEqual(r[0], r[1]);
+    assert.ok(r[0] < r[1]);
+    assert.ok(r.every((x) => [0, 2, 3].includes(x)));
+  }
+});

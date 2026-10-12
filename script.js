@@ -27,6 +27,12 @@ function isCorrect(item, displayIndex) {
   return displayIndex === correctDisplayIndex(item);
 }
 
+function pickHintRemovals(item, rng = Math.random) {
+  const right = correctDisplayIndex(item);
+  const wrong = [0, 1, 2, 3].filter((i) => i !== right);
+  return shuffle(wrong, rng).slice(0, 2).sort((a, b) => a - b);
+}
+
 const SPEED_SECONDS = 15;
 
 function createCountdown(seconds, onTick, onExpire, clock = { setInterval: (fn, ms) => setInterval(fn, ms), clearInterval: (id) => clearInterval(id) }) {
@@ -123,6 +129,7 @@ const state = {
   locked: false,
   isRetry: false,
   timer: null,
+  hintUsed: false,
 };
 
 function $(id) {
@@ -164,6 +171,7 @@ function startRound(mode, category) {
 function renderQuestion() {
   const item = state.items[state.index];
   state.locked = false;
+  state.hintUsed = false;
   $("progress").textContent = `${state.index + 1} / ${state.items.length}`;
   $("quiz-category").textContent = state.category;
   $("score-now").textContent = formatScore(state.score);
@@ -187,6 +195,9 @@ function renderQuestion() {
   $("next-btn").hidden = true;
   $("next-btn").textContent =
     state.index === state.items.length - 1 ? "결과 보기" : "다음";
+  const hintBtn = $("hint-btn");
+  hintBtn.hidden = state.mode !== "hint";
+  hintBtn.disabled = false;
   const timerEl = $("timer");
   if (state.mode === "speed" && state.timer) {
     timerEl.hidden = false;
@@ -204,13 +215,14 @@ function handleAnswer(displayIndex) {
   const item = state.items[state.index];
   const timedOut = displayIndex === null;
   const correct = !timedOut && isCorrect(item, displayIndex);
-  const usedHint = false;
+  const usedHint = state.hintUsed;
   const pts = scoreFor({ correct, usedHint });
   state.score += pts;
   state.results.push({ item, correct, usedHint, timedOut });
 
   const buttons = $("choices").querySelectorAll(".choice");
   buttons.forEach((b) => { b.disabled = true; });
+  $("hint-btn").disabled = true;
   buttons[correctDisplayIndex(item)].classList.add("is-correct");
   if (!correct && !timedOut) buttons[displayIndex].classList.add("is-wrong");
 
@@ -221,6 +233,18 @@ function handleAnswer(displayIndex) {
   $("explanation").textContent = item.q.explanation;
   $("source").textContent = "출처: " + item.q.source;
   $("next-btn").hidden = false;
+}
+
+function useHint() {
+  if (state.locked || state.hintUsed || state.mode !== "hint") return;
+  state.hintUsed = true;
+  $("hint-btn").disabled = true;
+  const item = state.items[state.index];
+  const buttons = $("choices").querySelectorAll(".choice");
+  pickHintRemovals(item).forEach((i) => {
+    buttons[i].classList.add("is-removed");
+    buttons[i].disabled = true;
+  });
 }
 
 function nextQuestion() {
@@ -270,6 +294,7 @@ function init() {
     btn.addEventListener("click", () => startRound(state.mode, btn.dataset.category));
   });
   $("next-btn").addEventListener("click", nextQuestion);
+  $("hint-btn").addEventListener("click", useHint);
   $("again-btn").addEventListener("click", () => startRound(state.mode, state.category));
   $("home-btn").addEventListener("click", goHome);
   goHome();
@@ -288,6 +313,7 @@ if (typeof module !== "undefined") {
     scoreFor,
     formatScore,
     createCountdown,
+    pickHintRemovals,
     SPEED_SECONDS,
     validateQuestions,
     superlativeIds,
