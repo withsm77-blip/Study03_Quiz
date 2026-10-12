@@ -183,3 +183,17 @@ test("hint removes two wrong choices", () => {
     assert.ok(r.every((x) => [0, 2, 3].includes(x)));
   }
 });
+
+test("getWrongItems returns fresh items for wrong answers only", () => {
+  const { getWrongItems } = require("../script.js");
+  const results = [];
+  for (let i = 0; i < 10; i++) {
+    const q = { id: "q" + i, category: "c", question: "Q" + i, choices: ["a", "b", "c", "d"], answer: 0 };
+    results.push({ item: { q, order: [0, 1, 2, 3] }, correct: ![2, 5, 7].includes(i), usedHint: false, timedOut: false });
+  }
+  const out = getWrongItems(results);
+  assert.equal(out.length, 3);
+  assert.deepEqual(out.map((it) => it.q.id).sort(), ["q2", "q5", "q7"]);
+  for (const it of out) assert.deepEqual(it.order.slice().sort(), [0, 1, 2, 3]);
+  assert.deepEqual(getWrongItems(results.filter((r) => r.correct)), []);
+});

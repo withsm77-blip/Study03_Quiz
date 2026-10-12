@@ -258,6 +258,62 @@ scenario("hint result format", async (page) => {
   assert.equal((await page.textContent("#result-detail")).trim(), "맞힘 8 · 틀림 2");
 });
 
+async function playPractice(page, wrongCount, cat = "한국사") {
+  await page.click('.mode-btn[data-mode="practice"]');
+  await page.click(`.category-btn[data-category="${cat}"]`);
+  const wrongTexts = [];
+  for (let i = 0; i < 10; i++) {
+    if (i < 10 - wrongCount) await answerCorrect(page);
+    else { wrongTexts.push((await page.textContent("#question")).trim()); await answerWrong(page); }
+    await page.click("#next-btn");
+  }
+  return wrongTexts;
+}
+
+scenario("retry wrong only", async (page) => {
+  const wrongTexts = await playPractice(page, 3);
+  assert.ok(await page.isVisible("#screen-result"));
+  assert.ok(!(await page.isVisible("#retry-summary")));
+  assert.ok(await page.isVisible("#retry-btn"));
+  await page.click("#retry-btn");
+  assert.equal((await page.textContent("#progress")).trim(), "1 / 3");
+  const seen = [];
+  for (let i = 0; i < 3; i++) {
+    seen.push((await page.textContent("#question")).trim());
+    if (i < 2) await answerCorrect(page); else await answerWrong(page);
+    assert.ok(["정답!", "오답"].includes((await page.textContent("#feedback")).trim()));
+    await page.click("#next-btn");
+  }
+  assert.deepEqual(seen.slice().sort(), wrongTexts.slice().sort());
+  assert.equal((await page.textContent("#result-score")).trim(), "7 / 10");
+  assert.equal((await page.textContent("#retry-summary")).trim(), "다시 풀기 3문제 중 2문제 정답");
+  assert.ok(!(await page.isVisible("#retry-btn")));
+  await page.click("#again-btn");
+  assert.equal((await page.textContent("#progress")).trim(), "1 / 10");
+  for (let i = 0; i < 10; i++) { await answerCorrect(page); await page.click("#next-btn"); }
+  assert.equal((await page.textContent("#result-score")).trim(), "10 / 10");
+  assert.ok(!(await page.isVisible("#retry-summary")));
+  assert.ok(!(await page.isVisible("#retry-btn")));
+});
+
+scenario("no retry when perfect", async (page) => {
+  await playPractice(page, 0);
+  assert.ok(await page.isVisible("#screen-result"));
+  assert.ok(!(await page.isVisible("#retry-btn")));
+});
+
+scenario("retry only in practice", async (page) => {
+  await startSpeed(page);
+  for (let i = 0; i < 10; i++) { await answerWrong(page); await page.click("#next-btn"); }
+  assert.ok(await page.isVisible("#screen-result"));
+  assert.ok(!(await page.isVisible("#retry-btn")));
+  await page.click("#home-btn");
+  await startHint(page);
+  for (let i = 0; i < 10; i++) { await answerWrong(page); await page.click("#next-btn"); }
+  assert.ok(await page.isVisible("#screen-result"));
+  assert.ok(!(await page.isVisible("#retry-btn")));
+});
+
 async function main() {
   const browser = await launch();
   let failed = 0;

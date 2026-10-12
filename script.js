@@ -19,6 +19,11 @@ function buildRound(questions, category, rng = Math.random) {
   }));
 }
 
+function getWrongItems(results, rng = Math.random) {
+  const qs = results.filter((r) => r.correct === false).map((r) => r.item.q);
+  return shuffle(qs, rng).map((q) => ({ q, order: shuffle([0, 1, 2, 3], rng) }));
+}
+
 function correctDisplayIndex(item) {
   return item.order.indexOf(item.q.answer);
 }
@@ -128,6 +133,8 @@ const state = {
   results: [],
   locked: false,
   isRetry: false,
+  baseScore: 0,
+  baseResults: [],
   timer: null,
   hintUsed: false,
 };
@@ -157,6 +164,8 @@ function startRound(mode, category) {
   state.results = [];
   state.locked = false;
   state.isRetry = false;
+  state.baseScore = 0;
+  state.baseResults = [];
   if (mode === "speed") {
     state.timer = createCountdown(
       SPEED_SECONDS,
@@ -257,14 +266,43 @@ function nextQuestion() {
   renderQuestion();
 }
 
+function startRetry() {
+  if (state.isRetry || state.mode !== "practice") return;
+  const items = getWrongItems(state.results);
+  if (items.length === 0) return;
+  state.isRetry = true;
+  state.baseScore = state.score;
+  state.baseResults = state.results;
+  state.items = items;
+  state.index = 0;
+  state.score = 0;
+  state.results = [];
+  state.locked = false;
+  showScreen("screen-quiz");
+  renderQuestion();
+}
+
 function showResult() {
   stopTimer();
   document.querySelectorAll("#screen-result .no-record-notice").forEach((el) => {
     el.hidden = state.mode !== "practice";
   });
-  const right = state.results.filter((r) => r.correct).length;
-  $("result-score").textContent = `${formatScore(state.score)} / ${state.items.length}`;
-  $("result-detail").textContent = `맞힘 ${right} · 틀림 ${state.results.length - right}`;
+  const main = state.isRetry ? state.baseResults : state.results;
+  const mainScore = state.isRetry ? state.baseScore : state.score;
+  const right = main.filter((r) => r.correct).length;
+  $("result-score").textContent = `${formatScore(mainScore)} / ${main.length}`;
+  $("result-detail").textContent = `맞힘 ${right} · 틀림 ${main.length - right}`;
+  const summary = $("retry-summary");
+  if (state.isRetry) {
+    const m = state.results.filter((r) => r.correct).length;
+    summary.textContent = `다시 풀기 ${state.results.length}문제 중 ${m}문제 정답`;
+    summary.hidden = false;
+  } else {
+    summary.textContent = "";
+    summary.hidden = true;
+  }
+  $("retry-btn").hidden =
+    state.isRetry || state.mode !== "practice" || main.length - right === 0;
   showScreen("screen-result");
 }
 
@@ -278,6 +316,9 @@ function showCategoryScreen() {
 
 function goHome() {
   stopTimer();
+  state.isRetry = false;
+  state.baseScore = 0;
+  state.baseResults = [];
   showScreen("screen-mode");
 }
 
@@ -295,6 +336,7 @@ function init() {
   });
   $("next-btn").addEventListener("click", nextQuestion);
   $("hint-btn").addEventListener("click", useHint);
+  $("retry-btn").addEventListener("click", startRetry);
   $("again-btn").addEventListener("click", () => startRound(state.mode, state.category));
   $("home-btn").addEventListener("click", goHome);
   goHome();
@@ -314,6 +356,7 @@ if (typeof module !== "undefined") {
     formatScore,
     createCountdown,
     pickHintRemovals,
+    getWrongItems,
     SPEED_SECONDS,
     validateQuestions,
     superlativeIds,
