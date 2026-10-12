@@ -83,6 +83,135 @@ function superlativeIds(questions) {
     .map((q) => q.id);
 }
 
+// ---- 화면 제어 ----
+
+const MODE_LABELS = { practice: "연습 모드", speed: "스피드 모드", hint: "힌트 모드" };
+
+const state = {
+  mode: "practice",
+  category: null,
+  items: [],
+  index: 0,
+  score: 0,
+  results: [],
+  locked: false,
+  isRetry: false,
+};
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function showScreen(id) {
+  document.querySelectorAll("main section").forEach((sec) => {
+    sec.hidden = sec.id !== id;
+  });
+}
+
+function startRound(mode, category) {
+  state.mode = mode;
+  state.category = category;
+  state.items = buildRound(QUESTIONS, category);
+  state.index = 0;
+  state.score = 0;
+  state.results = [];
+  state.locked = false;
+  state.isRetry = false;
+  showScreen("screen-quiz");
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const item = state.items[state.index];
+  state.locked = false;
+  $("progress").textContent = `${state.index + 1} / ${state.items.length}`;
+  $("quiz-category").textContent = state.category;
+  $("score-now").textContent = formatScore(state.score);
+  $("question").textContent = item.q.question;
+  const box = $("choices");
+  box.textContent = "";
+  item.order.forEach((origIdx, displayIdx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "choice";
+    btn.dataset.index = String(displayIdx);
+    btn.textContent = item.q.choices[origIdx];
+    btn.addEventListener("click", () => handleAnswer(displayIdx));
+    box.appendChild(btn);
+  });
+  const fb = $("feedback");
+  fb.textContent = "";
+  fb.className = "feedback";
+  $("explanation").textContent = "";
+  $("source").textContent = "";
+  $("next-btn").hidden = true;
+  $("next-btn").textContent =
+    state.index === state.items.length - 1 ? "결과 보기" : "다음";
+}
+
+function handleAnswer(displayIndex) {
+  if (state.locked) return;
+  state.locked = true;
+  const item = state.items[state.index];
+  const correct = isCorrect(item, displayIndex);
+  const usedHint = false;
+  const pts = scoreFor({ correct, usedHint });
+  state.score += pts;
+  state.results.push({ item, correct, usedHint, timedOut: false });
+
+  const buttons = $("choices").querySelectorAll(".choice");
+  buttons.forEach((b) => { b.disabled = true; });
+  buttons[correctDisplayIndex(item)].classList.add("is-correct");
+  if (!correct) buttons[displayIndex].classList.add("is-wrong");
+
+  $("score-now").textContent = formatScore(state.score);
+  const fb = $("feedback");
+  fb.textContent = correct ? "정답!" : "오답";
+  fb.className = "feedback " + (correct ? "ok" : "bad");
+  $("explanation").textContent = item.q.explanation;
+  $("source").textContent = "출처: " + item.q.source;
+  $("next-btn").hidden = false;
+}
+
+function nextQuestion() {
+  if (!state.locked) return;
+  if (state.index >= state.items.length - 1) {
+    showResult();
+    return;
+  }
+  state.index++;
+  renderQuestion();
+}
+
+function showResult() {
+  const right = state.results.filter((r) => r.correct).length;
+  $("result-score").textContent = `${formatScore(state.score)} / ${state.items.length}`;
+  $("result-detail").textContent = `맞힘 ${right} · 틀림 ${state.results.length - right}`;
+  showScreen("screen-result");
+}
+
+function goHome() {
+  $("current-mode").textContent = MODE_LABELS[state.mode];
+  showScreen("screen-category");
+}
+
+function init() {
+  const warnings = validateQuestions(QUESTIONS);
+  if (warnings.length > 0) console.warn("문항 데이터 문제:\n" + warnings.join("\n"));
+  state.mode = "practice";
+  document.querySelectorAll(".category-btn").forEach((btn) => {
+    btn.addEventListener("click", () => startRound(state.mode, btn.dataset.category));
+  });
+  $("next-btn").addEventListener("click", nextQuestion);
+  $("again-btn").addEventListener("click", () => startRound(state.mode, state.category));
+  $("home-btn").addEventListener("click", goHome);
+  goHome();
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", init);
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     shuffle,
