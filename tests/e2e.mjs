@@ -314,12 +314,158 @@ scenario("retry only in practice", async (page) => {
   assert.ok(!(await page.isVisible("#retry-btn")));
 });
 
+async function playToResult(page, mode, correctCount, cat = "한국사") {
+  await page.click(`.mode-btn[data-mode="${mode}"]`);
+  await page.click(`.category-btn[data-category="${cat}"]`);
+  for (let i = 0; i < 10; i++) {
+    if (i < correctCount) await answerCorrect(page); else await answerWrong(page);
+    await page.click("#next-btn");
+  }
+  assert.ok(await page.isVisible("#screen-result"));
+}
+
+const readBoard = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("quizLeaderboard")));
+const msgText = async (page) => (await page.textContent("#save-msg")).trim();
+
+async function openLbFromHome(page, mode, cat) {
+  await page.click("#open-lb-btn");
+  await page.selectOption("#lb-mode", mode);
+  await page.selectOption("#lb-category", cat);
+}
+
+scenario("save and persist", async (page) => {
+  await playToResult(page, "speed", 8);
+  assert.ok(await page.isVisible("#save-area"));
+  await page.fill("#name-input", "철수");
+  await page.click("#save-btn");
+  assert.equal(await msgText(page), "저장했습니다");
+  assert.ok(await page.locator("#save-btn").isDisabled());
+  await page.reload();
+  await openLbFromHome(page, "speed", "한국사");
+  const first = (await page.locator("#lb-list li").first().textContent()).trim();
+  assert.ok(first.includes("철수") && first.includes("8"), first);
+  assert.ok(/^1\. 철수 — 8 \(\d{4}-\d{2}-\d{2}\)$/.test(first), first);
+});
+
+scenario("save only once", async (page) => {
+  await playToResult(page, "speed", 8);
+  await page.fill("#name-input", "철수");
+  await page.evaluate(() => { document.getElementById("save-btn").click(); document.getElementById("save-btn").click(); });
+  await page.press("#name-input", "Enter");
+  const b = await readBoard(page);
+  assert.equal(b["speed|한국사"].length, 1);
+});
+
+scenario("enter key saves", async (page) => {
+  await playToResult(page, "hint", 3);
+  await page.fill("#name-input", "영희");
+  await page.press("#name-input", "Enter");
+  assert.equal(await msgText(page), "저장했습니다");
+  assert.equal((await readBoard(page))["hint|한국사"][0].name, "영희");
+});
+
+scenario("practice has no save", async (page) => {
+  await playToResult(page, "practice", 7);
+  assert.ok(!(await page.isVisible("#save-area")));
+});
+
+scenario("practice retry result has no save", async (page) => {
+  await playPractice(page, 2);
+  await page.click("#retry-btn");
+  for (let i = 0; i < 2; i++) { await answerCorrect(page); await page.click("#next-btn"); }
+  assert.ok(await page.isVisible("#screen-result"));
+  assert.ok(!(await page.isVisible("#save-area")));
+});
+
+scenario("name rendered as text", async (page) => {
+  await playToResult(page, "speed", 8);
+  await page.fill("#name-input", "<b>x</b>");
+  await page.click("#save-btn");
+  await page.click("#lb-open-from-result");
+  const li = page.locator("#lb-list li").first();
+  assert.ok((await li.textContent()).includes("<b>x</b>"));
+  assert.equal(await page.locator("#lb-list li b").count(), 0);
+});
+
+scenario("empty name is 익명", async (page) => {
+  await playToResult(page, "speed", 8);
+  await page.fill("#name-input", "   ");
+  await page.click("#save-btn");
+  assert.equal((await readBoard(page))["speed|한국사"][0].name, "익명");
+});
+
+scenario("out of rank", async (page) => {
+  await page.evaluate(() => {
+    const recs = [1, 2, 3, 4, 5].map((i) => ({ name: "고수" + i, score: 10, date: "2026-01-01", ts: i }));
+    localStorage.setItem("quizLeaderboard", JSON.stringify({ "speed|한국사": recs }));
+  });
+  await page.reload();
+  await playToResult(page, "speed", 9);
+  await page.click("#save-btn");
+  assert.equal(await msgText(page), "순위권 밖입니다");
+  assert.equal((await readBoard(page))["speed|한국사"].length, 5);
+});
+
+scenario("corrupt storage", async (page) => {
+  await page.evaluate(() => localStorage.setItem("quizLeaderboard", "{oops"));
+  await page.reload();
+  await openLbFromHome(page, "speed", "한국사");
+  assert.equal((await page.textContent("#lb-list")).trim(), "기록 없음");
+  assert.ok((await page.textContent("#screen-leaderboard")).includes("순위표를 저장할 수 없습니다"));
+  await page.click("#lb-back-btn");
+  await playToResult(page, "speed", 5);
+  await page.click("#save-btn");
+  assert.equal(await msgText(page), "순위표를 저장할 수 없습니다");
+});
+
+scenario("malformed board entries", async (page) => {
+  await page.evaluate(() => localStorage.setItem("quizLeaderboard", JSON.stringify({ "speed|한국사": "x", "speed|과학": [null, 3, { name: "정상", score: 2, date: "2026-01-01", ts: 1 }] })));
+  await page.reload();
+  await openLbFromHome(page, "speed", "한국사");
+  assert.equal((await page.textContent("#lb-list")).trim(), "기록 없음");
+  await page.selectOption("#lb-category", "과학");
+  assert.equal(await page.locator("#lb-list li").count(), 1);
+});
+
+scenario("separate boards", async (page) => {
+  await playToResult(page, "hint", 8);
+  await page.fill("#name-input", "힌트왕");
+  await page.click("#save-btn");
+  await page.click("#home-btn");
+  await openLbFromHome(page, "speed", "한국사");
+  assert.equal((await page.textContent("#lb-list")).trim(), "기록 없음");
+  await page.selectOption("#lb-mode", "hint");
+  assert.ok((await page.textContent("#lb-list")).includes("힌트왕"));
+  assert.deepEqual(await page.locator("#lb-mode option").allTextContents(), ["스피드", "힌트"]);
+});
+
+scenario("new round re-enables save", async (page) => {
+  await playToResult(page, "speed", 8);
+  await page.click("#save-btn");
+  await page.click("#again-btn");
+  for (let i = 0; i < 10; i++) { await answerCorrect(page); await page.click("#next-btn"); }
+  assert.ok(!(await page.locator("#save-btn").isDisabled()));
+  assert.equal(await msgText(page), "");
+  await page.click("#save-btn");
+  assert.equal((await readBoard(page))["speed|한국사"].length, 2);
+});
+
+scenario("leaderboard from result preselects", async (page) => {
+  await playToResult(page, "hint", 4, "과학");
+  await page.click("#lb-open-from-result");
+  assert.equal(await page.inputValue("#lb-mode"), "hint");
+  assert.equal(await page.inputValue("#lb-category"), "과학");
+  await page.click("#lb-back-btn");
+  assert.ok(await page.isVisible("#screen-result"));
+});
+
 async function main() {
   const browser = await launch();
   let failed = 0;
   for (const { name, fn, opts } of scenarios) {
     const page = await openApp(browser, opts);
     try {
+      await page.evaluate(() => localStorage.clear());
       await fn(page);
       assert.deepEqual(page.errors, [], "console errors");
       console.log("PASS  " + name);

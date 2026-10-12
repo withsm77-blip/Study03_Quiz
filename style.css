@@ -52,3 +52,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .mode-rule { margin: 0 4px; color: var(--muted); font-size: .9rem; }
 .mode-notice { margin: 0 4px; color: var(--muted); font-size: .85rem; font-weight: 700; }
 #open-lb-btn { width: 100%; margin-top: 16px; }
+.lb-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+#lb-mode { font: inherit; padding: 10px; border: 2px solid var(--line); border-radius: 10px; }
+#lb-list { padding-left: 1.6em; margin: 0 0 14px; }
+#lb-list li { padding: 4px 0; overflow-wrap: anywhere; }
+#lb-list li.lb-empty { list-style: none; margin-left: -1.6em; color: var(--muted); }
+.lb-warn { color: var(--bad); font-weight: 700; margin: 0 0 12px; }
+#save-area { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+#save-area #save-msg { flex-basis: 100%; margin: 0; font-weight: 700; }

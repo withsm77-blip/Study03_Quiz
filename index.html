@@ -76,15 +76,27 @@
       </div>
       <div class="btn-row">
         <button type="button" id="again-btn" class="btn-primary">같은 카테고리 다시</button>
+        <button type="button" id="lb-open-from-result" class="btn-secondary">순위표</button>
         <button type="button" id="home-btn" class="btn-secondary">처음으로</button>
       </div>
     </section>
 
     <section id="screen-leaderboard" hidden>
       <h2>순위표</h2>
-      <p>모드: <strong id="lb-mode"></strong></p>
-      <select id="lb-category" aria-label="카테고리"></select>
+      <div class="lb-controls">
+        <select id="lb-mode" aria-label="모드">
+          <option value="speed">스피드</option>
+          <option value="hint">힌트</option>
+        </select>
+        <select id="lb-category" aria-label="카테고리">
+          <option value="한국사">한국사</option>
+          <option value="세계지리">세계지리</option>
+          <option value="과학">과학</option>
+          <option value="예술과 문화">예술과 문화</option>
+        </select>
+      </div>
       <ol id="lb-list"></ol>
+      <p id="lb-warn" class="lb-warn" hidden>순위표를 저장할 수 없습니다</p>
       <button type="button" id="lb-back-btn" class="btn-secondary">돌아가기</button>
     </section>
   </main>

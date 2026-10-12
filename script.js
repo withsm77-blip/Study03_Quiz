@@ -185,6 +185,8 @@ const state = {
   baseResults: [],
   timer: null,
   hintUsed: false,
+  saved: false,
+  lbReturn: "screen-mode",
 };
 
 function $(id) {
@@ -214,6 +216,7 @@ function startRound(mode, category) {
   state.isRetry = false;
   state.baseScore = 0;
   state.baseResults = [];
+  resetSave();
   if (mode === "speed") {
     state.timer = createCountdown(
       SPEED_SECONDS,
@@ -314,6 +317,84 @@ function nextQuestion() {
   renderQuestion();
 }
 
+function resetSave() {
+  state.saved = false;
+  $("save-btn").disabled = false;
+  $("save-msg").textContent = "";
+  $("name-input").value = "";
+}
+
+function getStorage() {
+  try {
+    return window.localStorage;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveCurrentScore() {
+  if (state.saved) return;
+  if (state.isRetry || (state.mode !== "speed" && state.mode !== "hint")) return;
+  state.saved = true;
+  $("save-btn").disabled = true;
+  const msg = $("save-msg");
+  const storage = getStorage();
+  const loaded = loadBoard(storage);
+  if (!loaded.ok) {
+    msg.textContent = "순위표를 저장할 수 없습니다";
+    return;
+  }
+  const board = loaded.board;
+  const key = lbKey(state.mode, state.category);
+  const cur = Array.isArray(board[key]) ? board[key].filter(isValidRecord) : [];
+  const record = {
+    name: sanitizeName($("name-input").value),
+    score: state.score,
+    date: todayString(),
+    ts: Date.now(),
+  };
+  const res = insertRecord(cur, record, LB_LIMIT);
+  if (!res.inserted) {
+    msg.textContent = "순위권 밖입니다";
+    return;
+  }
+  board[key] = res.list;
+  msg.textContent = saveBoard(storage, board) ? "저장했습니다" : "순위표를 저장할 수 없습니다";
+}
+
+function isValidRecord(r) {
+  return r !== null && typeof r === "object" && typeof r.score === "number" && Number.isFinite(r.score);
+}
+
+function renderLeaderboard(mode, category) {
+  const list = $("lb-list");
+  list.textContent = "";
+  const loaded = loadBoard(getStorage());
+  $("lb-warn").hidden = loaded.ok;
+  const raw = loaded.board[lbKey(mode, category)];
+  const recs = Array.isArray(raw) ? raw.filter(isValidRecord) : [];
+  if (recs.length === 0) {
+    const li = document.createElement("li");
+    li.className = "lb-empty";
+    li.textContent = "기록 없음";
+    list.appendChild(li);
+    return;
+  }
+  recs.forEach((r, i) => {
+    const li = document.createElement("li");
+    li.textContent = `${i + 1}. ${String(r.name)} — ${formatScore(r.score)} (${String(r.date)})`;
+    list.appendChild(li);
+  });
+}
+
+function openLeaderboard(from, mode, category) {
+  state.lbReturn = from;
+  if (mode) $("lb-mode").value = mode;
+  if (category) $("lb-category").value = category;
+  renderLeaderboard($("lb-mode").value, $("lb-category").value);
+  showScreen("screen-leaderboard");
+}
+
 function startRetry() {
   if (state.isRetry || state.mode !== "practice") return;
   const items = getWrongItems(state.results);
@@ -351,6 +432,8 @@ function showResult() {
   }
   $("retry-btn").hidden =
     state.isRetry || state.mode !== "practice" || main.length - right === 0;
+  const canSave = !state.isRetry && (state.mode === "speed" || state.mode === "hint");
+  $("save-area").hidden = !canSave;
   showScreen("screen-result");
 }
 
@@ -364,6 +447,7 @@ function showCategoryScreen() {
 
 function goHome() {
   stopTimer();
+  resetSave();
   state.isRetry = false;
   state.baseScore = 0;
   state.baseResults = [];
@@ -387,6 +471,19 @@ function init() {
   $("retry-btn").addEventListener("click", startRetry);
   $("again-btn").addEventListener("click", () => startRound(state.mode, state.category));
   $("home-btn").addEventListener("click", goHome);
+  $("save-btn").addEventListener("click", saveCurrentScore);
+  $("name-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") saveCurrentScore();
+  });
+  const refreshLb = () => renderLeaderboard($("lb-mode").value, $("lb-category").value);
+  $("lb-mode").addEventListener("change", refreshLb);
+  $("lb-category").addEventListener("change", refreshLb);
+  $("open-lb-btn").addEventListener("click", () => openLeaderboard("screen-mode"));
+  $("lb-open-from-result").addEventListener("click", () => {
+    const mode = state.mode === "practice" ? null : state.mode;
+    openLeaderboard("screen-result", mode, state.category);
+  });
+  $("lb-back-btn").addEventListener("click", () => showScreen(state.lbReturn));
   goHome();
 }
 
