@@ -117,7 +117,7 @@ scenario("double click scores once", async (page) => {
   assert.equal((await page.textContent("#score-now")).trim(), "1");
 });
 
-const timerText = async (page) => (await page.textContent("#timer")).trim();
+const timerText = async (page) => (await page.textContent("#timer-sec")).trim();
 
 async function startSpeed(page, cat = "한국사") {
   await page.click('.mode-btn[data-mode="speed"]');
@@ -152,8 +152,10 @@ scenario("speed timeout", async (page) => {
   await startSpeed(page);
   assert.ok(await page.isVisible("#timer"));
   assert.equal(await timerText(page), "15");
+  assert.equal((await page.textContent("#timer")).trim(), "남은 시간 15초");
   await page.clock.runFor(15000);
   assert.equal((await page.textContent("#feedback")).trim(), "시간 초과");
+  assert.equal(await page.evaluate(() => document.activeElement.id), "next-btn");
   assert.equal(await page.locator("#choices .choice.is-correct").count(), 1);
   assert.equal(await page.locator("#choices .choice.is-wrong").count(), 0);
   assert.equal((await page.textContent("#score-now")).trim(), "0");
@@ -415,7 +417,8 @@ scenario("corrupt storage", async (page) => {
   await page.click("#lb-back-btn");
   await playToResult(page, "speed", 5);
   await page.click("#save-btn");
-  assert.equal(await msgText(page), "순위표를 저장할 수 없습니다");
+  assert.equal(await msgText(page), "저장했습니다");
+  assert.equal((await readBoard(page))["speed|한국사"].length, 1);
 });
 
 scenario("malformed board entries", async (page) => {
@@ -457,6 +460,98 @@ scenario("leaderboard from result preselects", async (page) => {
   assert.equal(await page.inputValue("#lb-category"), "과학");
   await page.click("#lb-back-btn");
   assert.ok(await page.isVisible("#screen-result"));
+});
+
+scenario("quiz screen shows mode", async (page) => {
+  await startSpeed(page);
+  assert.equal((await page.textContent("#quiz-mode")).trim(), "스피드 모드");
+}, { clock: true });
+
+scenario("leaderboard numbering once", async (page) => {
+  await playToResult(page, "speed", 3);
+  await page.fill("#name-input", "김철");
+  await page.click("#save-btn");
+  await page.click("#lb-open-from-result");
+  const li = page.locator("#lb-list li").first();
+  const t = (await li.innerText()).trim();
+  assert.ok(t.startsWith("1. 김철"), t);
+  assert.ok(!t.startsWith("1. 1."), t);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById("lb-list")).listStyleType), "none");
+});
+
+scenario("category back button", async (page) => {
+  await page.click('.mode-btn[data-mode="speed"]');
+  assert.equal((await page.textContent("#category-back-btn")).trim(), "처음으로");
+  await page.click("#category-back-btn");
+  assert.ok(await page.isVisible("#screen-mode"));
+  assert.ok(!(await page.isVisible("#screen-category")));
+});
+
+scenario("focus management", async (page) => {
+  await page.click('.mode-btn[data-mode="practice"]');
+  await page.click('.category-btn[data-category="한국사"]');
+  assert.equal(await page.evaluate(() => document.activeElement.className.includes("choice")), true);
+  await answerCorrect(page);
+  assert.equal(await page.evaluate(() => document.activeElement.id), "next-btn");
+  await page.click("#next-btn");
+  assert.equal(await page.evaluate(() => document.activeElement.className.includes("choice")), true);
+});
+
+scenario("button labels match PRD", async (page) => {
+  assert.equal((await page.textContent("#again-btn")).trim(), "다시 하기");
+  assert.equal((await page.textContent("#hint-btn")).trim(), "힌트");
+  assert.equal((await page.textContent("#save-btn")).trim(), "저장");
+});
+
+scenario("retry shows 다시 풀기 instead of score", async (page) => {
+  await playPractice(page, 2);
+  await page.click("#retry-btn");
+  assert.ok(await page.isVisible("#retry-label"));
+  assert.equal((await page.textContent("#retry-label")).trim(), "다시 풀기");
+  assert.ok(!(await page.isVisible("#score-now")));
+  await answerCorrect(page);
+  assert.ok(!(await page.isVisible("#score-now")));
+  await page.click("#next-btn");
+  await answerCorrect(page);
+  await page.click("#next-btn");
+  await page.click("#again-btn");
+  assert.ok(!(await page.isVisible("#retry-label")));
+  assert.ok(await page.isVisible("#score-now"));
+  assert.equal((await page.textContent("#score-now")).trim(), "0");
+});
+
+scenario("save failure is retryable", async (page) => {
+  await page.addInitScript(() => {
+    window.__failSet = true;
+    const orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      if (window.__failSet) throw new Error("quota");
+      return orig.call(this, k, v);
+    };
+  });
+  await page.reload();
+  await playToResult(page, "speed", 8);
+  await page.fill("#name-input", "철수");
+  await page.click("#save-btn");
+  assert.equal(await msgText(page), "순위표를 저장할 수 없습니다");
+  assert.ok(!(await msgText(page)).includes("저장했습니다"));
+  assert.ok(!(await page.locator("#save-btn").isDisabled()));
+  await page.evaluate(() => { window.__failSet = false; });
+  await page.click("#save-btn");
+  assert.equal(await msgText(page), "저장했습니다");
+  assert.ok(await page.locator("#save-btn").isDisabled());
+  assert.equal((await readBoard(page))["speed|한국사"].length, 1);
+});
+
+scenario("Enter during IME composition ignored", async (page) => {
+  await playToResult(page, "speed", 8);
+  await page.fill("#name-input", "철수");
+  await page.evaluate(() => {
+    document.getElementById("name-input").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true }));
+  });
+  assert.equal(await msgText(page), "");
+  await page.press("#name-input", "Enter");
+  assert.equal(await msgText(page), "저장했습니다");
 });
 
 async function main() {

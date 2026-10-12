@@ -88,8 +88,12 @@ function validateQuestions(questions) {
   const seen = new Set();
 
   questions.forEach((q, i) => {
-    const label = q && q.id ? q.id : `#${i}`;
-    if (!(q.category in counts)) {
+    if (q === null || typeof q !== "object") {
+      warnings.push(`#${i}: 문항이 객체가 아님`);
+      return;
+    }
+    const label = q.id ? q.id : `#${i}`;
+    if (!Object.hasOwn(counts, q.category)) {
       warnings.push(`${label}: 알 수 없는 카테고리 "${q.category}"`);
     } else {
       counts[q.category]++;
@@ -220,7 +224,7 @@ function startRound(mode, category) {
   if (mode === "speed") {
     state.timer = createCountdown(
       SPEED_SECONDS,
-      (sec) => { $("timer").textContent = String(sec); },
+      (sec) => { $("timer-sec").textContent = String(sec); },
       () => handleAnswer(null)
     );
   }
@@ -234,6 +238,9 @@ function renderQuestion() {
   state.hintUsed = false;
   $("progress").textContent = `${state.index + 1} / ${state.items.length}`;
   $("quiz-category").textContent = state.category;
+  $("quiz-mode").textContent = MODE_LABELS[state.mode];
+  $("score-label").hidden = state.isRetry;
+  $("retry-label").hidden = !state.isRetry;
   $("score-now").textContent = formatScore(state.score);
   $("question").textContent = item.q.question;
   const box = $("choices");
@@ -261,11 +268,13 @@ function renderQuestion() {
   const timerEl = $("timer");
   if (state.mode === "speed" && state.timer) {
     timerEl.hidden = false;
-    timerEl.textContent = String(SPEED_SECONDS);
+    $("timer-sec").textContent = String(SPEED_SECONDS);
     state.timer.start();
   } else {
     timerEl.hidden = true;
   }
+  const firstChoice = box.querySelector(".choice:not(:disabled)");
+  if (firstChoice) firstChoice.focus();
 }
 
 function handleAnswer(displayIndex) {
@@ -293,6 +302,7 @@ function handleAnswer(displayIndex) {
   $("explanation").textContent = item.q.explanation;
   $("source").textContent = "출처: " + item.q.source;
   $("next-btn").hidden = false;
+  $("next-btn").focus();
 }
 
 function useHint() {
@@ -340,11 +350,7 @@ function saveCurrentScore() {
   const msg = $("save-msg");
   const storage = getStorage();
   const loaded = loadBoard(storage);
-  if (!loaded.ok) {
-    msg.textContent = "순위표를 저장할 수 없습니다";
-    return;
-  }
-  const board = loaded.board;
+  const board = loaded.ok ? loaded.board : {};
   const key = lbKey(state.mode, state.category);
   const cur = Array.isArray(board[key]) ? board[key].filter(isValidRecord) : [];
   const record = {
@@ -359,7 +365,13 @@ function saveCurrentScore() {
     return;
   }
   board[key] = res.list;
-  msg.textContent = saveBoard(storage, board) ? "저장했습니다" : "순위표를 저장할 수 없습니다";
+  if (saveBoard(storage, board)) {
+    msg.textContent = "저장했습니다";
+  } else {
+    msg.textContent = "순위표를 저장할 수 없습니다";
+    state.saved = false;
+    $("save-btn").disabled = false;
+  }
 }
 
 function isValidRecord(r) {
@@ -471,8 +483,10 @@ function init() {
   $("retry-btn").addEventListener("click", startRetry);
   $("again-btn").addEventListener("click", () => startRound(state.mode, state.category));
   $("home-btn").addEventListener("click", goHome);
+  $("category-back-btn").addEventListener("click", goHome);
   $("save-btn").addEventListener("click", saveCurrentScore);
   $("name-input").addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") saveCurrentScore();
   });
   const refreshLb = () => renderLeaderboard($("lb-mode").value, $("lb-category").value);

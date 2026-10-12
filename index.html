@@ -40,18 +40,20 @@
         <button type="button" class="category-btn" data-category="예술과 문화">예술과 문화</button>
       </div>
       <p class="no-record-notice">순위표에 기록되지 않음</p>
+      <button type="button" id="category-back-btn" class="btn-secondary">처음으로</button>
     </section>
 
     <section id="screen-quiz" hidden>
       <div class="quiz-info">
         <span id="progress">1 / 10</span>
         <span id="quiz-category"></span>
-        <span class="score-box">점수 <strong id="score-now">0</strong></span>
-        <span id="timer" hidden></span>
+        <span id="quiz-mode"></span>
+        <span class="score-box"><span id="score-label">점수 <strong id="score-now">0</strong></span><span id="retry-label" hidden>다시 풀기</span></span>
+        <span id="timer" hidden>남은 시간 <span id="timer-sec">15</span>초</span>
       </div>
       <h2 id="question" class="question"></h2>
       <div id="choices" class="choices"></div>
-      <button type="button" id="hint-btn" class="btn-secondary" hidden>힌트 보기</button>
+      <button type="button" id="hint-btn" class="btn-secondary" hidden>힌트</button>
       <div class="judge" aria-live="polite">
         <p id="feedback" class="feedback"></p>
         <p id="explanation" class="explanation"></p>
@@ -71,11 +73,11 @@
       </div>
       <div id="save-area" hidden>
         <input type="text" id="name-input" maxlength="10" placeholder="이름 (최대 10자)">
-        <button type="button" id="save-btn" class="btn-secondary">순위표에 저장</button>
+        <button type="button" id="save-btn" class="btn-secondary">저장</button>
         <p id="save-msg"></p>
       </div>
       <div class="btn-row">
-        <button type="button" id="again-btn" class="btn-primary">같은 카테고리 다시</button>
+        <button type="button" id="again-btn" class="btn-primary">다시 하기</button>
         <button type="button" id="lb-open-from-result" class="btn-secondary">순위표</button>
         <button type="button" id="home-btn" class="btn-secondary">처음으로</button>
       </div>

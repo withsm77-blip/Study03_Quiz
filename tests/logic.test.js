@@ -270,3 +270,11 @@ test("saveBoard reports failure", () => {
 test("todayString", () => {
   assert.equal(todayString(new Date(2026, 9, 2)), "2026-10-02");
 });
+
+test("validateQuestions tolerates non-object entries", () => {
+  const set = [null, 5, ...makeValidSet()];
+  let w;
+  assert.doesNotThrow(() => { w = validateQuestions(set); });
+  assert.ok(w.length >= 2);
+  assert.doesNotThrow(() => validateQuestions([{ category: "toString" }]));
+});
