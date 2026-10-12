@@ -51,3 +51,69 @@ test("formatScore", () => {
   assert.equal(formatScore(7.5), "7.5");
   assert.equal(formatScore(0), "0");
 });
+
+// ---- Task 2: 문항 데이터 검증 ----
+
+const { validateQuestions, superlativeIds } = require("../script.js");
+
+function makeValidSet() {
+  const cats = [
+    ["한국사", "kh"],
+    ["세계지리", "wg"],
+    ["과학", "sc"],
+    ["예술과 문화", "ac"],
+  ];
+  const qs = [];
+  for (const [category, prefix] of cats) {
+    for (let i = 1; i <= 10; i++) {
+      qs.push({
+        id: `${prefix}-${String(i).padStart(2, "0")}`,
+        category,
+        question: `${category} 문제 ${i}`,
+        choices: ["가", "나", "다", "라"],
+        answer: i % 4,
+        explanation: "해설",
+        source: "출처, 항목",
+      });
+    }
+  }
+  return qs;
+}
+
+test("validateQuestions catches problems", () => {
+  assert.deepEqual(validateQuestions(makeValidSet()), []);
+
+  const badAnswer = makeValidSet();
+  badAnswer[0].answer = 4;
+  assert.ok(validateQuestions(badAnswer).length >= 1, "answer: 4");
+
+  const dupChoice = makeValidSet();
+  dupChoice[1].choices = ["가", "가", "다", "라"];
+  assert.ok(validateQuestions(dupChoice).length >= 1, "duplicate choices");
+
+  const blankSource = makeValidSet();
+  blankSource[2].source = " ";
+  assert.ok(validateQuestions(blankSource).length >= 1, "blank source");
+
+  const dupId = makeValidSet();
+  dupId[3].id = dupId[4].id;
+  assert.ok(validateQuestions(dupId).length >= 1, "duplicate id");
+
+  const nine = makeValidSet().slice(1);
+  assert.ok(validateQuestions(nine).length >= 1, "category with 9");
+});
+
+test("real QUESTIONS are valid", () => {
+  const { QUESTIONS } = require("../questions.js");
+  assert.equal(QUESTIONS.length, 40);
+  assert.deepEqual(validateQuestions(QUESTIONS), []);
+});
+
+test("superlatives state basis", () => {
+  const { QUESTIONS } = require("../questions.js");
+  const ids = superlativeIds(QUESTIONS);
+  for (const id of ids) {
+    const q = QUESTIONS.find((x) => x.id === id);
+    assert.ok(/\d{4}년/.test(q.question) || q.question.includes("기준"), id);
+  }
+});
